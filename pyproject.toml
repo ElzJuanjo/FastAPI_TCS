@@ -1,0 +1,34 @@
+[project]
+name = "events-api"
+version = "1.0.0"
+description = "Events Management API - Theater/Cinema Edition"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy>=2.0.0",
+    "pyodbc>=5.1.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pytz>=2024.1",
+    "httpx>=0.27.0",
+    "aiosmtplib>=3.0.0",
+    "jinja2>=3.1.0",
+    "xhtml2pdf>=0.2.0",
+    "zeep>=4.2.0",
+    "python-multipart>=0.0.9",
+    "gunicorn>=25.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/app",
+    "src/domain",
+    "src/infra",
+    "src/interfaces"
+]

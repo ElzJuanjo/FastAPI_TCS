@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Confirmación de Pago</title>
+  </head>
+
+  <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <div style="display: none; max-height: 0px; overflow: hidden;">✓ Tu pago ha sido confirmado exitosamente. Detalles de tus boletos incluidos.</div>
+
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f3f4f6; padding: 20px 0;">
+      <tr>
+        <td align="center" style="padding: 20px 15px;">
+          <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); overflow: hidden;">
+            <!-- Header -->
+            <tr>
+              <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 45px 30px; text-align: center;">
+                <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td align="center" style="padding-bottom: 25px;">
+                      <img src="{{ logo_url }}" alt="Logo" style="max-width: 180px; height: auto; display: block; margin: 0 auto;" />
+                    </td>
+                  </tr>
+                </table>
+
+                <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td align="center" style="padding-bottom: 20px;">
+                      <div style="width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto; line-height: 80px; text-align: center;">
+                        <span style="font-size: 42px; color: #ffffff;">🎬</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 32px; font-weight: 700;">¡Pago Exitoso!</h1>
+                <p style="color: rgba(255,255,255,0.95); margin: 0 0 25px 0; font-size: 16px;">Tus boletos han sido confirmados</p>
+
+                <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td align="center">
+                      <span style="display: inline-block; background: rgba(255,255,255,0.3); color: #ffffff; padding: 10px 24px; border-radius: 30px; font-size: 13px; font-weight: 600;">🎟️ BOLETOS CONFIRMADOS</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Contenido -->
+            <tr>
+              <td style="padding: 40px 30px;">
+                <p style="color: #1f2937; font-size: 17px; margin: 0 0 8px 0; font-weight: 500;">¡Hola! 👋</p>
+                <p style="color: #6b7280; font-size: 15px; line-height: 1.7; margin: 0 0 35px 0;">Tu pago ha sido procesado correctamente y tus boletos están confirmados. A continuación encontrarás los detalles de tu compra.</p>
+
+                <!-- Detalles de Orden -->
+                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 14px; margin-bottom: 35px; border: 1px solid #e2e8f0;">
+                  <tr>
+                    <td style="padding: 28px 24px;">
+                      <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                          <td style="padding-bottom: 20px; border-bottom: 1px dashed #cbd5e1;">
+                            <span style="display: inline-block; background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%); color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;">📋 DETALLES DE ORDEN</span>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top: 20px;">
+                        <tr>
+                          <td style="color: #64748b; font-size: 14px; padding: 10px 0; width: 45%;">Número de Orden</td>
+                          <td style="color: #1e293b; font-size: 15px; font-weight: 700; text-align: right; padding: 10px 0;">#{{ order.id }}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b; font-size: 14px; padding: 10px 0;">Monto Total</td>
+                          <td style="text-align: right; padding: 10px 0;">
+                            <span style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; padding: 8px 18px; border-radius: 10px; font-size: 18px; font-weight: 800;">{{ formatted_total }} COP</span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b; font-size: 14px; padding: 10px 0;">Estado</td>
+                          <td style="text-align: right; padding: 10px 0;">
+                            <span style="display: inline-block; background: #dcfce7; color: #166534; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;">✓ PAGADO</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Boletos -->
+                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 35px;">
+                  <tr>
+                    <td>
+                      <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                          <td style="padding-bottom: 20px;">
+                            <table cellpadding="0" cellspacing="0" border="0">
+                              <tr>
+                                <td style="width: 4px; background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%); border-radius: 2px;"></td>
+                                <td>
+                                  <h3 style="color: #1e293b; font-size: 18px; font-weight: 700; margin: 0; padding-left: 12px;">🎟️ Tus Boletos</h3>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.06);">
+                        <tr style="background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);">
+                          <th style="padding: 16px 20px; text-align: left; font-size: 12px; color: #ffffff; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">#</th>
+                          <th style="padding: 16px 20px; text-align: left; font-size: 12px; color: #ffffff; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Asientos</th>
+                          <th style="padding: 16px 20px; text-align: center; font-size: 12px; color: #ffffff; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Cantidad</th>
+                        </tr>
+
+                        {% for ticket in tickets %}
+                        <tr style="background-color: {% if loop.index is odd %}#ffffff{% else %}#f8fafc{% endif %}; border-bottom: 1px solid #f1f5f9;">
+                          <td style="padding: 18px 20px; font-size: 14px; color: #4338ca; font-weight: 700;">{{ loop.index }}</td>
+                          <td style="padding: 18px 20px; font-size: 15px; font-weight: 600; color: #1e293b;">{{ ticket.seats }}</td>
+                          <td style="padding: 18px 20px; text-align: center;">
+                            <span style="display: inline-block; background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%); color: #3730a3; padding: 6px 16px; border-radius: 8px; font-weight: 700; font-size: 13px;">{{ ticket.amount }}</span>
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Nota -->
+                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; border-left: 4px solid #f59e0b;">
+                  <tr>
+                    <td style="padding: 22px 24px;">
+                      <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                          <td style="width: 40px; vertical-align: top; padding-right: 12px;">
+                            <span style="font-size: 24px;">💡</span>
+                          </td>
+                          <td style="vertical-align: top;">
+                            <p style="color: #92400e; font-size: 14px; margin: 0; line-height: 1.6;">
+                              <strong style="display: block; margin-bottom: 4px;">Recordatorio Importante:</strong>
+                              Guarda este correo y tu comprobante de pago. Deberás presentarlos el día del evento junto con tu documento de identidad.
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #f8fafc; border-radius: 12px; margin-top: 30px;">
+                  <tr>
+                    <td style="padding: 20px; text-align: center;">
+                      <p style="color: #64748b; font-size: 13px; margin: 0; line-height: 1.6;">
+                        ¿Tienes preguntas? Responde a este correo o contáctanos<br />
+                        <strong style="color: #4338ca; font-weight: 600;">Estamos aquí para ayudarte</strong>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 35px 30px; text-align: center;">
+                <p style="color: #cbd5e1; font-size: 15px; margin: 0 0 8px 0; font-weight: 500;">¡Gracias por tu compra! 🙌</p>
+                <p style="color: #94a3b8; font-size: 13px; margin: 0 0 20px 0;">Te esperamos en el evento</p>
+
+                <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td align="center" style="padding-bottom: 20px;">
+                      <div style="width: 60px; height: 3px; background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%); margin: 0 auto; border-radius: 3px;"></div>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.5;">
+                  Este es un correo automático de confirmación.<br />
+                  Por favor conserva este mensaje para tus registros.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin-top: 25px;">
+            <tr>
+              <td align="center" style="padding: 0 20px;">
+                <p style="color: #9ca3af; font-size: 11px; margin: 0; text-align: center;">Si no realizaste esta compra, por favor ignora este mensaje o contáctanos inmediatamente.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
