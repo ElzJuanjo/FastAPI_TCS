@@ -3,6 +3,7 @@ BACKEND=$(APP_ROOT)/FastAPI_TCS
 VENV=$(BACKEND)/venv
 
 .PHONY: env backend gunicorn deploy
+.ONESHELL:
 
 env:
 	@echo "Creando $(BACKEND)/.env desde variables del sistema..."
