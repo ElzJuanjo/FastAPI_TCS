@@ -45,7 +45,7 @@ def _now_colombia():
 # Mapeo event_id → school_services.id
 EVENT_SERVICE_MAP = {
     1: 340,
-    2: 341, 
+    2: 443, 
 }
 
 DEFAULT_SERVICE_ID = 340

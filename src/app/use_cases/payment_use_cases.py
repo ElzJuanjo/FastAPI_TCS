@@ -171,7 +171,7 @@ class PaymentUseCases:
 
         if payment.status == "APPROVED":
             self._process_approved(payment)
-        elif payment.status in ["DECLINED", "ERROR"]:
+        elif payment.status in ["DECLINED", "VOIDED", "ERROR"]:
             payment.order.status = "FAILED"
             logger.warning(f"PlaceToPay pago rechazado {payment.id}")
 
