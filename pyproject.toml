@@ -19,6 +19,7 @@ dependencies = [
     "zeep>=4.2.0",
     "python-multipart>=0.0.9",
     "gunicorn>=25.2.0",
+    "alembic>=1.18.4",
 ]
 
 [build-system]

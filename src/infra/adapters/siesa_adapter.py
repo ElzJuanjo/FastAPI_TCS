@@ -42,11 +42,22 @@ def _now_colombia():
 # CONFIG POR SERVICIO
 # ==========================================================
 
-def get_service_siesa_config():
+# Mapeo event_id → school_services.id
+EVENT_SERVICE_MAP = {
+    1: 340,
+    2: 341, 
+}
+
+DEFAULT_SERVICE_ID = 340
+
+
+def get_service_siesa_config(event_id: int = None):
+    service_id = EVENT_SERVICE_MAP.get(event_id, DEFAULT_SERVICE_ID)
+
     conn = get_mssql_connection()
     cursor = conn.cursor()
 
-    query = """
+    query = f"""
     SELECT
         id_co,
         siesa_service_id,
@@ -63,7 +74,7 @@ def get_service_siesa_config():
         siesa_seller_id,
         siesa_seller_tercero_id
     FROM ecampus.dbo.school_services
-    WHERE id = 340
+    WHERE id = {service_id}
     """
 
     cursor.execute(query)
@@ -72,7 +83,7 @@ def get_service_siesa_config():
     if not row:
         cursor.close()
         conn.close()
-        raise ValueError("Servicio sin configuración SIESA")
+        raise ValueError(f"Servicio {service_id} (event_id={event_id}) sin configuración SIESA")
 
     columns = [column[0] for column in cursor.description]
     config = dict(zip(columns, row))
@@ -80,6 +91,76 @@ def get_service_siesa_config():
     cursor.close()
     conn.close()
     return config
+
+
+# ==========================================================
+# NORMALIZACIÓN DE MEDIO DE PAGO
+# ==========================================================
+
+# ── TARJETAS (SIESA → TCD) ──
+# Incluye: franquicias de tarjeta crédito/débito de PlaceToPay + Wompi
+_CARD_KEYWORDS = {
+    # Wompi
+    "CARD",
+    # PlaceToPay - paymentMethod / paymentMethodName / franchise
+    "VISA", "MASTER", "MASTERCARD", "DINERS", "AMEX",
+    "AMERICAN EXPRESS", "DISCOVER", "MAESTRO",
+    # PlaceToPay - tarjetas Colombia
+    "CODENSA", "EXITO", "ALKOSTO", "SOMOS", "CAFAM",
+    # PlaceToPay - tarjetas regionales
+    "ATH_CARD", "TELERED", "EBT", "EBTCH", "EBTRG", "ALIA",
+    # PlaceToPay - franchise codes (CR_ = crédito, DB_ = débito)
+    "CR_VS", "CR_MC", "CR_DN", "CR_AM", "CR_DC",
+    "DB_VS", "DB_MC", "DB_DN",
+    "RM_MC",  # recurrente Mastercard
+    "VISA_ELECTRON",
+    # Genéricos
+    "CREDIT", "DEBIT", "TARJETA",
+}
+
+# ── TRANSFERENCIAS / PSE / EFECTIVO (SIESA → CB5) ──
+_TRANSFER_KEYWORDS = {
+    # Wompi
+    "BANCOLOMBIA_TRANSFER", "BANCOLOMBIA_COLLECT",
+    "PSE", "NEQUI", "DAVIPLATA",
+    # PlaceToPay - Colombia
+    "BANCOLOMBIA", "BANCO_BOGOTA",
+    "ATH", "GANA",
+    "PROCESA",  # Billetera Compensar
+    # PlaceToPay - otros países
+    "SAFETYPAY", "SAFETY PAY",
+    "PAGOEFECTIVO", "PAGO EFECTIVO",
+    "PAYPAL",
+    "ATHMV",   # ATH Móvil Puerto Rico
+    "EBACH",   # ACH Puerto Rico
+    # Genéricos
+    "ACH", "TRANSFER", "EFECTIVO", "EFECTY", "BALOTO",
+    "SU RED", "BANCO", "CUENTAS",
+}
+
+
+def _normalize_payment_method(payment_method: str | None) -> str:
+    """
+    Normaliza el método de pago de cualquier gateway a CARD o TRANSFER.
+    Si no se puede determinar, asume TRANSFER (CB5 es más seguro en SIESA).
+    """
+    if not payment_method:
+        return "TRANSFER"
+
+    upper = payment_method.upper().strip()
+
+    # Primero checar tarjeta (más específico)
+    for kw in _CARD_KEYWORDS:
+        if kw in upper:
+            return "CARD"
+
+    # Luego transferencia
+    for kw in _TRANSFER_KEYWORDS:
+        if kw in upper:
+            return "TRANSFER"
+
+    # Default: transferencia
+    return "TRANSFER"
 
 
 # ==========================================================
@@ -110,7 +191,7 @@ class SiesaService:
         if not order.siesa_id:
             return {"success": False, "message": "Orden sin siesa_id"}
 
-        config = get_service_siesa_config()
+        config = get_service_siesa_config(order.event_id)
         now = _now_colombia()
         fecha = now.strftime("%Y%m%d")
 
@@ -190,7 +271,7 @@ class SiesaService:
         if not invoice_number:
             return {"success": False, "message": "Número de factura requerido"}
 
-        config = get_service_siesa_config()
+        config = get_service_siesa_config(order.event_id)
         now = _now_colombia()
         fecha = now.strftime("%Y%m%d")
 
@@ -204,7 +285,10 @@ class SiesaService:
 
         payment_extra = self.get_raw_response(payment)
 
-        if payment.payment_method == "CARD":
+        # Normalizar método de pago independiente del gateway
+        normalized_method = _normalize_payment_method(payment.payment_method)
+
+        if normalized_method == "CARD":
             medio_pago = "TCD"
             nro_cuenta = payment_extra.get("last_four", "")
             nro_autorizacion = payment_extra.get("external_identifier", "")[:10]
@@ -362,6 +446,31 @@ class SiesaService:
             except Exception as e:
                 logger.warning(f"No se pudo parsear raw_response: {e}")
                 raise Exception(f"Error parseando raw_response: {str(e)}")
+
+        # ── Wompi ──
+        # Estructura: { payment_method: { extra: { external_identifier, ... } } }
+        if payment.gateway == "WOMPI":
+            return raw_data.get("payment_method", {}).get("extra", {})
+
+        # ── PlaceToPay ──
+        # Estructura: { payment: [{ authorization, processorFields: [{keyword, value}], ... }] }
+        if payment.gateway == "PLACETOPAY":
+            transactions = raw_data.get("payment", [])
+            if not transactions or not isinstance(transactions, list):
+                return {}
+
+            tx = transactions[0]
+
+            # processorFields es un array [{keyword, value}, ...]
+            proc_fields = {}
+            for field in (tx.get("processorFields") or []):
+                proc_fields[field.get("keyword", "")] = field.get("value", "")
+
+            return {
+                "franchise": tx.get("franchise", ""),
+                "last_four": proc_fields.get("lastDigits", ""),
+                "external_identifier": tx.get("authorization", ""),
+            }
 
         return raw_data.get("payment_method", {}).get("extra", {})
 

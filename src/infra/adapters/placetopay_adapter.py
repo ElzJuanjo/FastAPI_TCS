@@ -2,7 +2,7 @@ import hashlib
 import base64
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 
@@ -43,17 +43,25 @@ def create_session(
     buyer_email: str = "",
     return_url: str | None = None,
 ) -> dict:
-    """
-    Crea una sesión de pago en PlaceToPay.
-    Retorna { request_id, process_url, status } o lanza excepción.
-    """
     url = f"{settings.PLACETOPAY_URL}/api/session"
     redirect_url = return_url or settings.PLACETOPAY_RETURN_URL
 
+    # PlaceToPay: reference máximo 32 chars alfanuméricos
+    clean_ref = reference.replace("-", "")[:32]
+
+    name_parts = buyer_name.strip().split(" ", 1)
+    first_name = name_parts[0] if name_parts else "N/A"
+    surname = name_parts[1] if len(name_parts) > 1 else "N/A"
+
+    expiration = (datetime.utcnow() + timedelta(hours=1)).strftime(
+        "%Y-%m-%dT%H:%M:%S+00:00"
+    )
+
     payload = {
+        "locale": "es_CO",
         "auth": _generate_auth(),
         "payment": {
-            "reference": reference,
+            "reference": clean_ref,
             "description": description,
             "amount": {
                 "currency": currency,
@@ -61,23 +69,23 @@ def create_session(
             },
         },
         "buyer": {
-            "name": buyer_name,
-            "email": buyer_email,
+            "name": first_name,
+            "surname": surname,
+            "email": buyer_email or "sin-email@placeholder.com",
         },
-        "expiration": (
-            datetime.utcnow()
-            .replace(hour=23, minute=59, second=59)
-            .strftime("%Y-%m-%dT%H:%M:%S+00:00")
-        ),
+        "expiration": expiration,
         "returnUrl": f"{redirect_url}?ref={reference}",
         "ipAddress": "127.0.0.1",
-        "userAgent": "EventsAPI/1.0",
+        "userAgent": "PlacetoPay Sandbox",
     }
 
     logger.info(f"PlaceToPay create session | ref={reference}")
+    logger.debug(f"PlaceToPay payload: {json.dumps(payload, indent=2)}")
 
     response = httpx.post(url, json=payload, timeout=30)
     data = response.json()
+
+    logger.info(f"PlaceToPay response [{response.status_code}]: {json.dumps(data, indent=2, ensure_ascii=False)}")
 
     if data.get("status", {}).get("status") != "OK":
         msg = data.get("status", {}).get("message", "Error desconocido")
@@ -92,10 +100,6 @@ def create_session(
 
 
 def query_session(request_id: str) -> dict:
-    """
-    Consulta el estado de una sesión existente.
-    Retorna { status, transaction_id, payment_method, raw }.
-    """
     url = f"{settings.PLACETOPAY_URL}/api/session/{request_id}"
 
     payload = {"auth": _generate_auth()}
@@ -105,7 +109,6 @@ def query_session(request_id: str) -> dict:
 
     status_raw = data.get("status", {}).get("status", "PENDING")
 
-    # Mapear estados PlaceToPay → estados internos
     status_map = {
         "APPROVED": "APPROVED",
         "APPROVED_PARTIAL": "APPROVED",
@@ -116,7 +119,6 @@ def query_session(request_id: str) -> dict:
 
     internal_status = status_map.get(status_raw, "PENDING")
 
-    # Extraer datos de transacción si existen
     transactions = data.get("payment", [])
     transaction_id = None
     payment_method_type = None
