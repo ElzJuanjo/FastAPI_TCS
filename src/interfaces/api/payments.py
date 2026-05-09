@@ -63,19 +63,3 @@ def check_placetopay(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-    
-@router.post("/placetopay/check/{order_id}")
-def check_placetopay(order_id: str, db: Session = Depends(get_db)):
-    """
-    El frontend llama esto cuando el usuario vuelve de PlaceToPay.
-    Consulta el estado real de la sesión y procesa approve/decline.
-    """
-    uc = PaymentUseCases(db)
-    try:
-        result = uc.check_placetopay_status(order_id)
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

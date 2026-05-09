@@ -55,9 +55,9 @@ para fase posterior). Ejecuta este INSERT en SQL Server reemplazando
 INSERT INTO [EventosTCS_dev].[dbo].[camp_weeks]
   (event_id, week_number, label, start_date, end_date, days, price, stock, is_active)
 VALUES
-  (3, 1, 'Semana 1 — 16 al 19 de junio', '2026-06-16', '2026-06-19', 4, 640000,  60, 1),
-  (3, 2, 'Semana 2 — 22 al 26 de junio', '2026-06-22', '2026-06-26', 5, 800000,  60, 1),
-  (3, 3, 'Semana 3 — 30 jun al 3 jul',   '2026-06-30', '2026-07-03', 4, 640000,  60, 1);
+  (3, 1, 'Semana 1 — 16 al 19 de junio', '2026-06-16', '2026-06-19', 4, 640000,  999, 1),
+  (3, 2, 'Semana 2 — 22 al 26 de junio', '2026-06-22', '2026-06-26', 5, 800000,  999, 1),
+  (3, 3, 'Semana 3 — 30 jun al 3 jul',   '2026-06-30', '2026-07-03', 4, 640000,  999, 1);
 ```
 
 Anota los `id` generados (IDENTITY) — los necesitas para los paquetes.

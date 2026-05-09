@@ -25,9 +25,11 @@ class OrderCampEnrollment(Base):
 
     child_first_name = Column(String(80), nullable=False)
     child_last_name = Column(String(80), nullable=False)
+    child_nit_type = Column(String(10), nullable=True)
+    child_nit = Column(String(20), nullable=True)
 
-    # K4_1ST | 2ND_3RD | 4TH_5TH
-    age_group = Column(String(20), nullable=False)
+    # Valor libre definido por el evento (ej: K4_1ST, 2ND_3RD, 4TH_5TH)
+    age_group = Column(String(30), nullable=False)
 
     # WEEK | PACKAGE | DAY
     enrollment_type = Column(String(20), nullable=False)

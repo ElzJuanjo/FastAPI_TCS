@@ -104,7 +104,8 @@ class CampUseCases:
             individual_date = child.get("individual_date")
 
             # Duplicados dentro de la misma orden
-            name_key = f"{first}|{last}|{camp_week_id}|{camp_package_id}|{individual_date}"
+            child_nit = (child.get("child_nit") or "").strip()
+            name_key = f"{first}|{last}|{child_nit}|{camp_week_id}|{camp_package_id}|{individual_date}"
             if name_key in seen_names:
                 raise ValueError(
                     f"El niño '{first} {last}' aparece duplicado en la misma semana/paquete."
@@ -189,6 +190,8 @@ class CampUseCases:
                 event_id=child["event_id"],
                 child_first_name=child["child_first_name"],
                 child_last_name=child["child_last_name"],
+                child_nit_type=child.get("child_nit_type"),
+                child_nit=child.get("child_nit"),
                 age_group=child["age_group"],
                 enrollment_type=child["enrollment_type"],
                 camp_week_id=child.get("camp_week_id"),

@@ -83,8 +83,7 @@ class AttendeeData(BaseModel):
 # ===========================
 
 class TicketData(BaseModel):
-    """Datos de boletos para teatro/cine."""
-    day: date = Field(..., description="Día del evento: YYYY-MM-DD")
+    day: date = Field(..., description="Dia del evento: YYYY-MM-DD")
     seats: str = Field(..., description="Asientos separados por coma: A1,A2,A3")
     amount: int = Field(..., gt=0, description="Cantidad total de asientos")
 
@@ -94,17 +93,10 @@ class TicketData(BaseModel):
 # ===========================
 
 class CampChildData(BaseModel):
-    """
-    Datos de un menor inscrito en un evento de tipo Camp.
-
-    Los valores de age_group y enrollment_type son strings libres
-    definidos por cada evento, validados en el use case contra
-    los registros de camp_weeks y camp_packages en BD.
-    Esto permite escalar a futuros eventos con distintos grupos
-    o modalidades sin tocar el DTO.
-    """
     child_first_name: str = Field(..., description="Nombre del menor")
     child_last_name: str = Field(..., description="Apellido del menor")
+    child_nit_type: Optional[str] = Field(None, description="Tipo de documento del menor (CC, TI, RC, etc.)")
+    child_nit: Optional[str] = Field(None, description="Numero de documento del menor")
 
     age_group: str = Field(
         ...,
@@ -113,37 +105,21 @@ class CampChildData(BaseModel):
 
     enrollment_type: str = Field(
         ...,
-        description="Tipo de inscripción: WEEK | PACKAGE | DAY (extensible por evento)"
+        description="Tipo de inscripcion: WEEK | PACKAGE | DAY (extensible por evento)"
     )
 
-    # Requerido si enrollment_type = WEEK
     camp_week_id: Optional[int] = None
-
-    # Requerido si enrollment_type = PACKAGE
     camp_package_id: Optional[int] = None
-
-    # Requerido si enrollment_type = DAY
     individual_date: Optional[date] = None
 
     @model_validator(mode="after")
     def validate_enrollment_fields(self):
-        """
-        Validación de campos condicionales según enrollment_type.
-        Los tipos WEEK / PACKAGE / DAY son los soportados actualmente;
-        tipos futuros pueden agregarse en el use case sin cambiar este DTO.
-        """
         if self.enrollment_type == "WEEK" and self.camp_week_id is None:
-            raise ValueError(
-                "camp_week_id es requerido cuando enrollment_type es WEEK"
-            )
+            raise ValueError("camp_week_id es requerido cuando enrollment_type es WEEK")
         if self.enrollment_type == "PACKAGE" and self.camp_package_id is None:
-            raise ValueError(
-                "camp_package_id es requerido cuando enrollment_type es PACKAGE"
-            )
+            raise ValueError("camp_package_id es requerido cuando enrollment_type es PACKAGE")
         if self.enrollment_type == "DAY" and self.individual_date is None:
-            raise ValueError(
-                "individual_date es requerida cuando enrollment_type es DAY"
-            )
+            raise ValueError("individual_date es requerida cuando enrollment_type es DAY")
         return self
 
 
@@ -152,15 +128,6 @@ class CampChildData(BaseModel):
 # ===========================
 
 class OrderCreateRequest(BaseModel):
-    """
-    Soporta los tres tipos de evento actuales:
-    - Carreras:    buyer + attendees
-    - Teatro/Cine: buyer + tickets
-    - Camp:        buyer + camp_children
-
-    Los campos attendees, tickets y camp_children son mutuamente
-    excluyentes. La validación del tipo se realiza en el use case.
-    """
     buyer: BuyerData
     attendees: Optional[list[AttendeeData]] = None
     tickets: Optional[TicketData] = None
@@ -185,17 +152,13 @@ class OrderResponse(BaseModel):
 # ===========================
 
 class PaymentInitRequest(BaseModel):
-    gateway: str = Field(
-        default="WOMPI",
-        description="Pasarela de pago: WOMPI | PLACETOPAY",
-    )
+    gateway: str = Field(default="WOMPI", description="Pasarela de pago: WOMPI | PLACETOPAY")
 
 
 class PaymentInitResponse(BaseModel):
     payment_id: int
     order_id: str
     gateway: str
-    # Wompi fields
     redirect_url: Optional[str] = None
     amount: Optional[int] = None
     currency: Optional[str] = None
@@ -203,6 +166,5 @@ class PaymentInitResponse(BaseModel):
     reference: Optional[str] = None
     public_key: Optional[str] = None
     integrity_signature: Optional[str] = None
-    # PlaceToPay fields
     process_url: Optional[str] = None
     request_id: Optional[str] = None

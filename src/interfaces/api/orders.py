@@ -68,6 +68,8 @@ def _serialize_order(order):
                 "id": e.id,
                 "child_first_name": e.child_first_name,
                 "child_last_name": e.child_last_name,
+                "child_nit_type": e.child_nit_type,
+                "child_nit": e.child_nit,
                 "age_group": e.age_group,
                 "enrollment_type": e.enrollment_type,
                 "camp_week_id": e.camp_week_id,
