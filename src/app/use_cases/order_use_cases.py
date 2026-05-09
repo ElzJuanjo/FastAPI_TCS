@@ -119,7 +119,7 @@ class OrderUseCases:
     def get_all(self):
         return (
             self.db.query(Order)
-            .order_by(desc(Order.created_at)) 
+            .order_by(desc(Order.created_at))
             .all()
         )
 
@@ -129,6 +129,13 @@ class OrderUseCases:
             raise ValueError("Orden no encontrada")
         if order.status != "PENDING":
             raise ValueError("Solo se pueden eliminar órdenes en estado pendiente")
+
+        # Restaurar cupos de Camp si aplica
+        if order.camp_enrollments:
+            from src.app.use_cases.camp_use_cases import CampUseCases
+            camp_uc = CampUseCases(self.db)
+            camp_uc.restore_stock_for_order(order)
+
         self.order_repo.delete(order)
 
     def get_occupied_seats(
@@ -162,6 +169,7 @@ class OrderUseCases:
         buyer: dict,
         attendees: list[dict] | None = None,
         tickets: dict | None = None,
+        camp_children: list[dict] | None = None,
     ) -> Order:
         # Validar campos requeridos del comprador
         for field in REQUIRED_BUYER_FIELDS:
@@ -174,16 +182,27 @@ class OrderUseCases:
 
         _validate_buyer(buyer)
 
-        # Determinar tipo de evento y calcular total
+        # Determinar tipo de evento
         is_theater = tickets is not None
         is_race = attendees is not None and len(attendees) > 0
+        is_camp = camp_children is not None and len(camp_children) > 0
 
-        if not is_theater and not is_race:
+        if not is_theater and not is_race and not is_camp:
             raise ValueError(
-                "Debe proporcionar tickets (teatro) o attendees (carreras)"
+                "Debe proporcionar tickets (teatro), attendees (carreras) "
+                "o camp_children (camp)"
             )
 
-        if is_theater:
+        if is_camp:
+            # ---- CAMP ----
+            from src.app.use_cases.camp_use_cases import CampUseCases
+            camp_uc = CampUseCases(self.db)
+            total_amount, resolved_children = camp_uc.resolve_and_validate_children(
+                event_id=buyer["event_id"],
+                children=camp_children,
+            )
+
+        elif is_theater:
             # ---- TEATRO/CINE ----
             seats_list = [s.strip() for s in tickets["seats"].split(",") if s.strip()]
             if len(seats_list) != tickets["amount"]:
@@ -210,6 +229,7 @@ class OrderUseCases:
             total_amount = _calculate_total_tickets(
                 event, tickets["amount"], buyer["person_source"]
             )
+
         else:
             # ---- CARRERAS (legacy) ----
             if len(attendees) > 10:
@@ -236,7 +256,10 @@ class OrderUseCases:
 
         self.order_repo.create(order)
 
-        if is_theater:
+        if is_camp:
+            camp_uc.create_enrollments(order.id, resolved_children)
+
+        elif is_theater:
             _create_ticket(self.db, order, tickets)
 
             occupied_now = self.ticket_repo.get_occupied_seats(
@@ -267,6 +290,7 @@ class OrderUseCases:
         buyer: dict,
         attendees: list[dict] | None = None,
         tickets: dict | None = None,
+        camp_children: list[dict] | None = None,
     ) -> Order:
         order = self.order_repo.get_by_id(order_id)
         if not order:
@@ -284,22 +308,29 @@ class OrderUseCases:
 
         is_theater = tickets is not None
         is_race = attendees is not None and len(attendees) > 0
+        is_camp = camp_children is not None and len(camp_children) > 0
 
-        if not is_theater and not is_race:
+        if not is_theater and not is_race and not is_camp:
             raise ValueError(
-                "Debe proporcionar tickets (teatro) o attendees (carreras)"
+                "Debe proporcionar tickets (teatro), attendees (carreras) "
+                "o camp_children (camp)"
             )
 
-        if is_theater:
+        if is_camp:
+            from src.app.use_cases.camp_use_cases import CampUseCases
+            camp_uc = CampUseCases(self.db)
+            total_amount, resolved_children = camp_uc.resolve_and_validate_children(
+                event_id=buyer["event_id"],
+                children=camp_children,
+            )
+
+        elif is_theater:
             seats_list = [s.strip() for s in tickets["seats"].split(",") if s.strip()]
             if len(seats_list) != tickets["amount"]:
                 raise ValueError(
-                    f"La cantidad no coincide con los asientos proporcionados"
+                    "La cantidad no coincide con los asientos proporcionados"
                 )
 
-            # Validar ocupados excluyendo la propia orden (el repo ya aplica
-            # la regla PAID + PENDING-no-expirado; pasándole exclude_order_id
-            # evitamos que la orden choque consigo misma al reeditarse).
             occupied = self.ticket_repo.get_occupied_seats(
                 buyer["event_id"],
                 tickets["day"],
@@ -315,6 +346,7 @@ class OrderUseCases:
             total_amount = _calculate_total_tickets(
                 event, tickets["amount"], buyer["person_source"]
             )
+
         else:
             if len(attendees) > 10:
                 raise ValueError("Máximo 10 asistentes por orden")
@@ -336,8 +368,14 @@ class OrderUseCases:
         order.event_id = buyer["event_id"]
         order.total_amount = total_amount
 
-        if is_theater:
-            # Reemplazar tickets
+        if is_camp:
+            # Restaurar stock anterior y reemplazar inscripciones
+            camp_uc.restore_stock_for_order(order)
+            from src.infra.adapters.camp_enrollment_repository import CampEnrollmentRepositorySQL
+            CampEnrollmentRepositorySQL(self.db).delete_by_order_id(order_id)
+            camp_uc.create_enrollments(order.id, resolved_children)
+
+        elif is_theater:
             self.ticket_repo.delete_by_order_id(order_id)
             _create_ticket(self.db, order, tickets)
 
@@ -355,7 +393,6 @@ class OrderUseCases:
                     f"{', '.join(conflicts_now)}. Por favor seleccione otros."
                 )
         else:
-            # Reemplazar asistentes
             for att in order.attendees:
                 self.db.delete(att)
             self.db.flush()

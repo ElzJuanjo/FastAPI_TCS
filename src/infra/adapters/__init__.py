@@ -3,3 +3,6 @@ from .order_repository import OrderRepositorySQL
 from .payment_repository import PaymentRepositorySQL
 from .ticket_repository import TicketRepositorySQL
 from .person_repository import PersonRepositorySQL
+from .camp_week_repository import CampWeekRepositorySQL
+from .camp_package_repository import CampPackageRepositorySQL
+from .camp_enrollment_repository import CampEnrollmentRepositorySQL

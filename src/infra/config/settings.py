@@ -105,6 +105,20 @@ class Settings(BaseSettings):
     COMPANY_LOGO_URL_ATTENDEES: str = ""
     COMPANY_LOGO_FILE_ATTENDEES: str = "logos_attendees.png"
 
+    # ---------- Perfil CAMP (TCS Camp) ----------
+    MAIL_USERNAME_CAMP: str = ""
+    MAIL_PASSWORD_CAMP: str = ""
+    MAIL_DEFAULT_SENDER_CAMP: str = ""
+    COMPANY_LOGO_URL_CAMP: str = ""
+    COMPANY_LOGO_FILE_CAMP: str = "logos_camp.png"
+
+    # ===========================
+    # CAMP
+    # ===========================
+    # Precio del día individual en pesos COP.
+    # Parametrizado para ajustar sin redeploy.
+    CAMP_DAY_PRICE: int = 200_000
+
     # ===========================
     # LOGGING
     # ===========================

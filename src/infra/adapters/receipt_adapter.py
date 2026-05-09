@@ -21,7 +21,7 @@ jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
 
 def generate_receipt_pdf_bytes(order, payment, buyer_name: str) -> bytes:
-    # Logo dinámico según perfil (tickets vs attendees)
+    # Logo dinámico según perfil (tickets / attendees / camp)
     mail_profile = get_mail_profile(order)
     logo_path = os.path.join(STATIC_DIR, mail_profile.logo_filename)
     if not os.path.exists(logo_path):
@@ -35,9 +35,47 @@ def generate_receipt_pdf_bytes(order, payment, buyer_name: str) -> bytes:
         transaction_id = payment.wompi_transaction_id or "N/A"
         gateway_label = "Wompi"
 
+    has_camp = bool(order.camp_enrollments)
     has_tickets = bool(order.tickets)
 
-    if has_tickets:
+    if has_camp:
+        # ---- CAMP ----
+        enrollments_data = []
+        for e in order.camp_enrollments:
+            enrollment_detail = {
+                "child_name": f"{e.child_first_name} {e.child_last_name}",
+                "age_group": e.age_group,
+                "enrollment_type": e.enrollment_type,
+                "unit_price": e.unit_price,
+            }
+            if e.camp_week and e.enrollment_type == "WEEK":
+                enrollment_detail["week_label"] = (
+                    e.camp_week.label or f"Semana {e.camp_week.week_number}"
+                )
+                enrollment_detail["start_date"] = e.camp_week.start_date.isoformat()
+                enrollment_detail["end_date"] = e.camp_week.end_date.isoformat()
+            elif e.camp_package and e.enrollment_type == "PACKAGE":
+                enrollment_detail["package_label"] = (
+                    e.camp_package.label or e.camp_package.code
+                )
+            elif e.enrollment_type == "DAY" and e.individual_date:
+                enrollment_detail["individual_date"] = e.individual_date.isoformat()
+            enrollments_data.append(enrollment_detail)
+
+        template = jinja_env.get_template("receipt_pdf_camp.html")
+        html = template.render(
+            order=order,
+            transaction_id=transaction_id,
+            gateway_label=gateway_label,
+            payment_date=payment.created_at.strftime("%d/%m/%Y %H:%M"),
+            total_amount=f"{order.total_amount:,.2f}",
+            enrollments=enrollments_data,
+            buyer_name=buyer_name,
+            logo_path=logo_path,
+        )
+
+    elif has_tickets:
+        # ---- TEATRO/CINE ----
         tickets_data = []
         for t in order.tickets:
             tickets_data.append({
@@ -57,8 +95,9 @@ def generate_receipt_pdf_bytes(order, payment, buyer_name: str) -> bytes:
             buyer_name=buyer_name,
             logo_path=logo_path,
         )
+
     else:
-        # Legacy: carreras
+        # ---- CARRERAS (legacy) ----
         attendees_data = []
         for a in order.attendees:
             parts = [a.first_name or ""]

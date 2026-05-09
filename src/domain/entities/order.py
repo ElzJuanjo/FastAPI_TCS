@@ -93,4 +93,11 @@ class Order(Base):
         passive_deletes=True,
     )
 
+    camp_enrollments = relationship(
+        "OrderCampEnrollment",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     event = relationship("Event", backref="orders")

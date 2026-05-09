@@ -3,11 +3,9 @@ Resolver de perfil de correo por línea de negocio.
 
 Centraliza la decisión de qué credenciales SMTP, sender y logo usar
 según el contenido de la orden:
-  - tickets  -> perfil TICKETS  (teatro/cine)
+  - tickets   -> perfil TICKETS  (teatro/cine)
   - attendees -> perfil ATTENDEES (carreras)
-
-Un único punto de decisión = fácil de testear y de extender a nuevas
-líneas de negocio sin tocar los adapters.
+  - camp      -> perfil CAMP (TCS Camp)
 """
 
 from dataclasses import dataclass
@@ -15,7 +13,7 @@ from typing import Literal
 
 from src.infra.config.settings import get_settings
 
-ProfileKind = Literal["tickets", "attendees"]
+ProfileKind = Literal["tickets", "attendees", "camp"]
 
 
 @dataclass(frozen=True)
@@ -25,17 +23,22 @@ class MailProfile:
     password: str
     default_sender: str
     logo_url: str
-    logo_filename: str 
+    logo_filename: str
 
 
 def resolve_profile_kind(order) -> ProfileKind:
     """
-    Regla de negocio: si la orden tiene tickets, es perfil 'tickets';
-    en caso contrario (attendees o vacío) cae a 'attendees'.
-    Mantener aquí la regla evita duplicarla en email y receipt.
+    Detecta el perfil según el contenido de la orden:
+      1. camp_enrollments presentes → 'camp'
+      2. tickets presentes          → 'tickets'
+      3. fallback                   → 'attendees'
     """
+    if getattr(order, "camp_enrollments", None):
+        return "camp"
+
     if getattr(order, "tickets", None):
         return "tickets"
+
     return "attendees"
 
 
@@ -51,6 +54,16 @@ def get_mail_profile(order) -> MailProfile:
             default_sender=settings.MAIL_DEFAULT_SENDER_TICKETS,
             logo_url=settings.COMPANY_LOGO_URL_TICKETS,
             logo_filename=settings.COMPANY_LOGO_FILE_TICKETS,
+        )
+
+    if kind == "camp":
+        return MailProfile(
+            kind="camp",
+            username=settings.MAIL_USERNAME_CAMP,
+            password=settings.MAIL_PASSWORD_CAMP,
+            default_sender=settings.MAIL_DEFAULT_SENDER_CAMP,
+            logo_url=settings.COMPANY_LOGO_URL_CAMP,
+            logo_filename=settings.COMPANY_LOGO_FILE_CAMP,
         )
 
     return MailProfile(

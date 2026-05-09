@@ -54,16 +54,44 @@ async def send_payment_confirmation_email(payment) -> bool:
         order = payment.order
         buyer_name = _get_buyer_full_name(order)
 
-        # Perfil dinámico (tickets vs attendees): credenciales, sender y logo
+        # Perfil dinámico (tickets / attendees / camp): credenciales, sender y logo
         mail_profile = get_mail_profile(order)
 
-        # Determinar tipo de evento por contenido
+        # Determinar tipo de evento por contenido de la orden
+        has_camp = bool(order.camp_enrollments)
         has_tickets = bool(order.tickets)
-        has_attendees = bool(order.attendees)
 
         # Datos para template
-        if has_tickets:
-            # Evento teatro/cine
+        if has_camp:
+            # ---- CAMP ----
+            enrollments_data = []
+            for e in order.camp_enrollments:
+                enrollment_detail = {
+                    "child_name": f"{e.child_first_name} {e.child_last_name}",
+                    "age_group": e.age_group,
+                    "enrollment_type": e.enrollment_type,
+                    "unit_price": e.unit_price,
+                }
+                if e.camp_week and e.enrollment_type == "WEEK":
+                    enrollment_detail["week_label"] = e.camp_week.label or f"Semana {e.camp_week.week_number}"
+                    enrollment_detail["start_date"] = e.camp_week.start_date.isoformat()
+                    enrollment_detail["end_date"] = e.camp_week.end_date.isoformat()
+                elif e.camp_package and e.enrollment_type == "PACKAGE":
+                    enrollment_detail["package_label"] = e.camp_package.label or e.camp_package.code
+                elif e.enrollment_type == "DAY" and e.individual_date:
+                    enrollment_detail["individual_date"] = e.individual_date.isoformat()
+                enrollments_data.append(enrollment_detail)
+
+            template = jinja_env.get_template("email_paid_camp.html")
+            html_body = template.render(
+                order=order,
+                enrollments=enrollments_data,
+                logo_url=mail_profile.logo_url,
+                formatted_total=f"{order.total_amount:,.2f}",
+            )
+
+        elif has_tickets:
+            # ---- TEATRO/CINE ----
             tickets_data = []
             for t in order.tickets:
                 tickets_data.append({
@@ -79,8 +107,9 @@ async def send_payment_confirmation_email(payment) -> bool:
                 logo_url=mail_profile.logo_url,
                 formatted_total=f"{order.total_amount:,.2f}",
             )
+
         else:
-            # Evento carreras (legacy)
+            # ---- CARRERAS (legacy) ----
             attendees_data = [
                 {
                     "name": _get_attendee_full_name(a),

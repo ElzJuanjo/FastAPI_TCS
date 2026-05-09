@@ -43,7 +43,9 @@ class PaymentUseCases:
         if not event:
             raise ValueError("Evento no encontrado")
 
-        # Validar stock según tipo
+        # Validar stock según tipo de evento
+        # Camp no valida contra event.stock global (usa stock por semana,
+        # ya controlado en la creación de la orden).
         if order.tickets:
             ticket_count = sum(t.amount for t in order.tickets)
             if ticket_count > event.stock:
@@ -201,14 +203,18 @@ class PaymentUseCases:
 
         # Stock + Email
         try:
-            # Determinar cantidad para stock
             order = payment.order
+
+            # Descontar stock global solo para THEATER y RACE.
+            # Camp ya descontó su stock por semana al crear la orden;
+            # no tiene un stock global en events que gestionar aquí.
             if order.tickets:
                 quantity = sum(t.amount for t in order.tickets)
-            else:
+                self.event_repo.decrease_stock(order.event_id, quantity)
+            elif order.attendees:
                 quantity = len(order.attendees)
-
-            self.event_repo.decrease_stock(order.event_id, quantity)
+                self.event_repo.decrease_stock(order.event_id, quantity)
+            # is_camp → no decrease_stock sobre events
 
             import asyncio
             try:

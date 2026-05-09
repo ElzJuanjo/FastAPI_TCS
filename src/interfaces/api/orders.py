@@ -61,6 +61,23 @@ def _serialize_order(order):
             for t in order.tickets
         ]
 
+    # Camp enrollments
+    if order.camp_enrollments:
+        result["camp_enrollments"] = [
+            {
+                "id": e.id,
+                "child_first_name": e.child_first_name,
+                "child_last_name": e.child_last_name,
+                "age_group": e.age_group,
+                "enrollment_type": e.enrollment_type,
+                "camp_week_id": e.camp_week_id,
+                "camp_package_id": e.camp_package_id,
+                "individual_date": e.individual_date.isoformat() if e.individual_date else None,
+                "unit_price": e.unit_price,
+            }
+            for e in order.camp_enrollments
+        ]
+
     return result
 
 
@@ -88,7 +105,7 @@ def get_order_by_person(
 
 @router.get("")
 def get_orders(
-    event_id: int | None = Query(None), 
+    event_id: int | None = Query(None),
     db: Session = Depends(get_db),
     _: bool = Depends(verify_support_key),
 ):
@@ -121,7 +138,7 @@ def get_occupied_seats(
     Un asiento se considera ocupado si pertenece a una orden en estado
     PAID, o en estado PENDING dentro de la ventana de reserva temporal
     (SEAT_RESERVATION_TTL_MINUTES). Las órdenes PENDING vencidas, FAILED
-    o CANCELLED se liberan automáticamente.
+     o CANCELLED se liberan automáticamente.
     """
     uc = OrderUseCases(db)
     seats = uc.get_occupied_seats(event_id, day, exclude_order_id=exclude_order_id)
@@ -145,6 +162,7 @@ def create_new_order(
             buyer=data.buyer.model_dump(),
             attendees=[a.model_dump() for a in data.attendees] if data.attendees else None,
             tickets=data.tickets.model_dump() if data.tickets else None,
+            camp_children=[c.model_dump() for c in data.camp_children] if data.camp_children else None,
         )
         return {"message": "Orden creada correctamente", "order_id": order.id}
     except ValueError as e:
@@ -167,6 +185,7 @@ def update_existing_order(
             buyer=data.buyer.model_dump(),
             attendees=[a.model_dump() for a in data.attendees] if data.attendees else None,
             tickets=data.tickets.model_dump() if data.tickets else None,
+            camp_children=[c.model_dump() for c in data.camp_children] if data.camp_children else None,
         )
         return {
             "message": "Orden actualizada correctamente",

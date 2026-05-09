@@ -95,3 +95,59 @@ class PersonRepository(ABC):
     @abstractmethod
     def find_by_document(self, nit: str) -> dict:
         ...
+
+
+class CampWeekRepository(ABC):
+    @abstractmethod
+    def get_by_event(self, event_id: int) -> list:
+        """Retorna semanas activas de un evento Camp."""
+        ...
+
+    @abstractmethod
+    def get_by_id(self, week_id: int):
+        """Retorna una semana por su ID."""
+        ...
+
+    @abstractmethod
+    def decrease_stock(self, week_id: int, qty: int = 1):
+        """
+        Descuenta cupos de forma atómica.
+        Lanza ValueError si no hay stock suficiente.
+        """
+        ...
+
+    @abstractmethod
+    def restore_stock(self, week_id: int, qty: int = 1):
+        """
+        Restaura cupos (al eliminar una orden PENDING).
+        """
+        ...
+
+
+class CampPackageRepository(ABC):
+    @abstractmethod
+    def get_by_event(self, event_id: int) -> list:
+        """Retorna paquetes activos de un evento Camp."""
+        ...
+
+    @abstractmethod
+    def get_by_id(self, package_id: int):
+        """Retorna un paquete por su ID."""
+        ...
+
+
+class CampEnrollmentRepository(ABC):
+    @abstractmethod
+    def create(self, enrollment):
+        """Persiste una inscripción de Camp."""
+        ...
+
+    @abstractmethod
+    def get_by_order_id(self, order_id: str) -> list:
+        """Retorna todas las inscripciones de una orden."""
+        ...
+
+    @abstractmethod
+    def delete_by_order_id(self, order_id: str):
+        """Elimina todas las inscripciones de una orden."""
+        ...
