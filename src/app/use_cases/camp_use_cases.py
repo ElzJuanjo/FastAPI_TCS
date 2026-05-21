@@ -17,7 +17,6 @@ from src.domain.entities.order_camp_enrollment import OrderCampEnrollment
 from src.infra.adapters.camp_week_repository import CampWeekRepositorySQL
 from src.infra.adapters.camp_package_repository import CampPackageRepositorySQL
 from src.infra.adapters.camp_enrollment_repository import CampEnrollmentRepositorySQL
-from src.infra.config.settings import get_settings
 
 logger = logging.getLogger("app")
 
@@ -35,7 +34,6 @@ class CampUseCases:
         self.week_repo = CampWeekRepositorySQL(db)
         self.package_repo = CampPackageRepositorySQL(db)
         self.enrollment_repo = CampEnrollmentRepositorySQL(db)
-        self.settings = get_settings()
 
     # -------------------------------------------------------
     # CONSULTAS PÚBLICAS
@@ -89,8 +87,6 @@ class CampUseCases:
 
         Lanza ValueError si alguna validación falla.
         """
-        day_price = getattr(self.settings, "CAMP_DAY_PRICE", 200_000)
-
         resolved = []
         total = 0
         seen_names = set()
@@ -157,7 +153,13 @@ class CampUseCases:
                     raise ValueError(
                         f"No hay cupos disponibles para la fecha {individual_date}."
                     )
-                unit_price = day_price
+                # Precio del día desde el registro DAY en camp_packages
+                day_pkg = self.package_repo.get_day_package(event_id)
+                if not day_pkg:
+                    raise ValueError(
+                        "No hay un paquete DAY activo configurado para este evento."
+                    )
+                unit_price = day_pkg.price
 
             else:
                 raise ValueError(f"enrollment_type inválido: {enrollment_type}")

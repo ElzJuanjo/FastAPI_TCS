@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 
 from src.domain.entities.payment import Payment
 from src.domain.entities.order import Order
-from src.domain.entities.event import Event
 from src.infra.adapters.payment_repository import PaymentRepositorySQL
 from src.infra.adapters.event_repository import EventRepositorySQL
 from src.infra.adapters.wompi_adapter import generate_wompi_integrity_signature
@@ -38,21 +37,6 @@ class PaymentUseCases:
         order = self.db.query(Order).get(order_id)
         if not order:
             raise ValueError("Orden no encontrada")
-
-        event = self.db.query(Event).get(order.event_id)
-        if not event:
-            raise ValueError("Evento no encontrado")
-
-        # Validar stock según tipo de evento
-        # Camp no valida contra event.stock global (usa stock por semana,
-        # ya controlado en la creación de la orden).
-        if order.tickets:
-            ticket_count = sum(t.amount for t in order.tickets)
-            if ticket_count > event.stock:
-                raise ValueError("La cantidad de boletos supera el stock disponible")
-        elif order.attendees:
-            if len(order.attendees) > event.stock:
-                raise ValueError("La cantidad de asistentes supera el stock disponible")
 
         # Limpiar pago previo si no está aprobado
         existing = self.payment_repo.get_by_order_id(order_id)
@@ -140,6 +124,9 @@ class PaymentUseCases:
         if payment.status == "APPROVED":
             self._process_approved(payment)
         elif payment.status in ["DECLINED", "VOIDED", "ERROR"]:
+            # Restaurar stock solo la primera vez (guarda de idempotencia)
+            if payment.order.status == "PENDING":
+                self._restore_stock_on_failure(payment.order)
             payment.order.status = "FAILED"
             logger.warning(f"Pago no aprobado {payment.id}")
 
@@ -174,6 +161,9 @@ class PaymentUseCases:
         if payment.status == "APPROVED":
             self._process_approved(payment)
         elif payment.status in ["DECLINED", "VOIDED", "ERROR"]:
+            # Restaurar stock solo la primera vez (guarda de idempotencia)
+            if payment.order.status == "PENDING":
+                self._restore_stock_on_failure(payment.order)
             payment.order.status = "FAILED"
             logger.warning(f"PlaceToPay pago rechazado {payment.id}")
 
@@ -201,30 +191,45 @@ class PaymentUseCases:
             logger.error(f"SIESA falló para pago {payment.id}")
             payment.siesa_error = str(e)
 
-        # Stock + Email
+        # El stock fue decrementado al crear la orden; aquí solo se procesa
+        # el pago como confirmación. Camp gestiona su stock por semana.
+
+        # Email de confirmación — fallo no bloquea el pago
         try:
-            order = payment.order
-
-            # Descontar stock global solo para THEATER y RACE.
-            # Camp ya descontó su stock por semana al crear la orden;
-            # no tiene un stock global en events que gestionar aquí.
-            if order.tickets:
-                quantity = sum(t.amount for t in order.tickets)
-                self.event_repo.decrease_stock(order.event_id, quantity)
-            elif order.attendees:
-                quantity = len(order.attendees)
-                self.event_repo.decrease_stock(order.event_id, quantity)
-            # is_camp → no decrease_stock sobre events
-
             import asyncio
             try:
                 loop = asyncio.get_running_loop()
                 loop.create_task(send_payment_confirmation_email(payment))
             except RuntimeError:
                 asyncio.run(send_payment_confirmation_email(payment))
-
         except Exception:
-            logger.error(f"Post-proceso falló para pago {payment.id}")
+            logger.error(f"Email de confirmación falló para pago {payment.id}")
+
+    def _restore_stock_on_failure(self, order):
+        """
+        Devuelve los cupos reservados al evento cuando un pago falla.
+        Solo se invoca si la orden está aún en PENDING (guarda de idempotencia).
+        Camp gestiona su propio stock por semana; aquí solo se maneja Theater y Race.
+        """
+        try:
+            if order.tickets:
+                quantity = sum(t.amount for t in order.tickets)
+                self.event_repo.restore_stock(order.event_id, quantity)
+                logger.info(
+                    f"[STOCK] Restaurados {quantity} boleto(s) al evento "
+                    f"{order.event_id} (pago fallido, orden {order.id})"
+                )
+            elif order.attendees:
+                quantity = len(order.attendees)
+                self.event_repo.restore_stock(order.event_id, quantity)
+                logger.info(
+                    f"[STOCK] Restaurados {quantity} cupo(s) al evento "
+                    f"{order.event_id} (pago fallido, orden {order.id})"
+                )
+        except Exception as e:
+            logger.error(
+                f"[STOCK] Error restaurando stock para orden {order.id}: {e}"
+            )
 
     def _generar_documentos_siesa(self, payment: Payment):
         if not siesa_service:

@@ -51,7 +51,7 @@ def get_mail_profile(order) -> MailProfile:
             kind="tickets",
             username=settings.MAIL_USERNAME_TICKETS,
             password=settings.MAIL_PASSWORD_TICKETS,
-            default_sender=settings.MAIL_DEFAULT_SENDER_TICKETS,
+            default_sender=settings.MAIL_USERNAME_TICKETS,
             logo_url=settings.COMPANY_LOGO_URL_TICKETS,
             logo_filename=settings.COMPANY_LOGO_FILE_TICKETS,
         )
@@ -61,7 +61,7 @@ def get_mail_profile(order) -> MailProfile:
             kind="camp",
             username=settings.MAIL_USERNAME_CAMP,
             password=settings.MAIL_PASSWORD_CAMP,
-            default_sender=settings.MAIL_DEFAULT_SENDER_CAMP,
+            default_sender=settings.MAIL_USERNAME_CAMP,
             logo_url=settings.COMPANY_LOGO_URL_CAMP,
             logo_filename=settings.COMPANY_LOGO_FILE_CAMP,
         )
@@ -70,7 +70,7 @@ def get_mail_profile(order) -> MailProfile:
         kind="attendees",
         username=settings.MAIL_USERNAME_ATTENDEES,
         password=settings.MAIL_PASSWORD_ATTENDEES,
-        default_sender=settings.MAIL_DEFAULT_SENDER_ATTENDEES,
+        default_sender=settings.MAIL_USERNAME_ATTENDEES,
         logo_url=settings.COMPANY_LOGO_URL_ATTENDEES,
         logo_filename=settings.COMPANY_LOGO_FILE_ATTENDEES,
     )

@@ -21,12 +21,37 @@ class EventRepositorySQL(EventRepository):
         return event
 
     def decrease_stock(self, event_id: int, quantity: int):
-        event = self.db.query(Event).get(event_id)
-        if not event:
-            raise ValueError("Evento no encontrado")
-        if event.stock < quantity:
-            raise ValueError("Stock insuficiente")
+        """
+        Descuento atómico de stock usando UPDATE con WHERE stock >= qty.
+        Si afecta 0 filas el stock estaba agotado → ValueError.
+        No hace commit propio; el commit lo gestiona el llamador.
+        """
+        from sqlalchemy import text
+        result = self.db.execute(
+            text(
+                "UPDATE events "
+                "SET stock = stock - :qty "
+                "WHERE id = :event_id AND stock >= :qty"
+            ),
+            {"qty": quantity, "event_id": event_id},
+        )
+        if result.rowcount == 0:
+            raise ValueError(
+                f"Stock insuficiente para el evento {event_id}. "
+                "Es posible que los últimos cupos hayan sido tomados."
+            )
 
-        event.stock -= quantity
-        self.db.commit()
-        return event
+    def restore_stock(self, event_id: int, quantity: int):
+        """
+        Devuelve cupos al evento al cancelar o fallar una orden.
+        No hace commit propio; el commit lo gestiona el llamador.
+        """
+        from sqlalchemy import text
+        self.db.execute(
+            text(
+                "UPDATE events "
+                "SET stock = stock + :qty "
+                "WHERE id = :event_id"
+            ),
+            {"qty": quantity, "event_id": event_id},
+        )

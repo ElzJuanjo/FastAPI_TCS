@@ -94,30 +94,20 @@ class Settings(BaseSettings):
     # ---------- Perfil TICKETS (teatro/cine) ----------
     MAIL_USERNAME_TICKETS: str = ""
     MAIL_PASSWORD_TICKETS: str = ""
-    MAIL_DEFAULT_SENDER_TICKETS: str = ""
     COMPANY_LOGO_URL_TICKETS: str = ""
     COMPANY_LOGO_FILE_TICKETS: str = "logos_tickets.png"
 
     # ---------- Perfil ATTENDEES (carreras) ----------
     MAIL_USERNAME_ATTENDEES: str = ""
     MAIL_PASSWORD_ATTENDEES: str = ""
-    MAIL_DEFAULT_SENDER_ATTENDEES: str = ""
     COMPANY_LOGO_URL_ATTENDEES: str = ""
     COMPANY_LOGO_FILE_ATTENDEES: str = "logos_attendees.png"
 
     # ---------- Perfil CAMP (TCS Camp) ----------
     MAIL_USERNAME_CAMP: str = ""
     MAIL_PASSWORD_CAMP: str = ""
-    MAIL_DEFAULT_SENDER_CAMP: str = ""
     COMPANY_LOGO_URL_CAMP: str = ""
     COMPANY_LOGO_FILE_CAMP: str = "logos_camp.png"
-
-    # ===========================
-    # CAMP
-    # ===========================
-    # Precio del día individual en pesos COP.
-    # Parametrizado para ajustar sin redeploy.
-    CAMP_DAY_PRICE: int = 200_000
 
     # ===========================
     # LOGGING

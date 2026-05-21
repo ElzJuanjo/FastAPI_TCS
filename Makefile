@@ -53,7 +53,6 @@ env:
 	@echo "MAIL_PASSWORD_CAMP=$$MAIL_PASSWORD_CAMP" >> $(BACKEND)/.env
 	@echo "COMPANY_LOGO_URL_CAMP=$$COMPANY_LOGO_URL_CAMP" >> $(BACKEND)/.env
 	@echo "COMPANY_LOGO_FILE_CAMP=$$COMPANY_LOGO_FILE_CAMP" >> $(BACKEND)/.env
-	@echo "CAMP_DAY_PRICE=$$CAMP_DAY_PRICE" >> $(BACKEND)/.env
 
 	@echo "LOG_LEVEL=$$LOG_LEVEL" >> $(BACKEND)/.env
 	@echo "Backend .env creado correctamente"

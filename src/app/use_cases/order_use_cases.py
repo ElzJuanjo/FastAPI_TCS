@@ -8,6 +8,7 @@ from src.domain.entities.order_ticket import OrderTicket
 from src.domain.entities.event import Event
 from src.infra.adapters.order_repository import OrderRepositorySQL
 from src.infra.adapters.ticket_repository import TicketRepositorySQL
+from src.infra.adapters.event_repository import EventRepositorySQL
 
 
 REQUIRED_BUYER_FIELDS = [
@@ -109,6 +110,7 @@ class OrderUseCases:
         self.db = db
         self.order_repo = OrderRepositorySQL(db)
         self.ticket_repo = TicketRepositorySQL(db)
+        self.event_repo = EventRepositorySQL(db)
 
     def get_by_id(self, order_id: str):
         return self.order_repo.get_by_id(order_id)
@@ -130,11 +132,15 @@ class OrderUseCases:
         if order.status != "PENDING":
             raise ValueError("Solo se pueden eliminar órdenes en estado pendiente")
 
-        # Restaurar cupos de Camp si aplica
+        # Restaurar stock según tipo de orden
         if order.camp_enrollments:
             from src.app.use_cases.camp_use_cases import CampUseCases
-            camp_uc = CampUseCases(self.db)
-            camp_uc.restore_stock_for_order(order)
+            CampUseCases(self.db).restore_stock_for_order(order)
+        elif order.tickets:
+            quantity = sum(t.amount for t in order.tickets)
+            self.event_repo.restore_stock(order.event_id, quantity)
+        elif order.attendees:
+            self.event_repo.restore_stock(order.event_id, len(order.attendees))
 
         self.order_repo.delete(order)
 
@@ -234,6 +240,14 @@ class OrderUseCases:
             # ---- CARRERAS (legacy) ----
             if len(attendees) > 10:
                 raise ValueError("Máximo 10 asistentes por orden")
+
+            # Pre-check rápido (el cerrojo definitivo es el UPDATE atómico al persistir)
+            if len(attendees) > event.stock:
+                raise ValueError(
+                    f"No hay suficientes cupos disponibles. "
+                    f"Disponibles: {event.stock}, solicitados: {len(attendees)}."
+                )
+
             total_amount = _calculate_total_attendees(event, attendees)
 
         # Crear orden
@@ -261,6 +275,8 @@ class OrderUseCases:
 
         elif is_theater:
             _create_ticket(self.db, order, tickets)
+            # Reservar stock atómicamente. Si falla (sin cupos), hace rollback implícito.
+            self.event_repo.decrease_stock(buyer["event_id"], tickets["amount"])
 
             occupied_now = self.ticket_repo.get_occupied_seats(
                 buyer["event_id"],
@@ -277,6 +293,8 @@ class OrderUseCases:
                 )
         else:
             _create_attendees(self.db, order, attendees)
+            # Reservar stock atómicamente. Si falla (sin cupos), hace rollback implícito.
+            self.event_repo.decrease_stock(buyer["event_id"], len(attendees))
 
         self.db.commit()
         return order
@@ -295,6 +313,9 @@ class OrderUseCases:
         order = self.order_repo.get_by_id(order_id)
         if not order:
             raise ValueError("Orden no encontrada")
+
+        # Capturar event_id original antes de cualquier modificación
+        old_event_id = order.event_id
 
         for field in REQUIRED_BUYER_FIELDS:
             if not buyer.get(field):
@@ -319,17 +340,30 @@ class OrderUseCases:
         if is_camp:
             from src.app.use_cases.camp_use_cases import CampUseCases
             camp_uc = CampUseCases(self.db)
+            # Restaurar stock ANTES de validar para que la validación vea
+            # los cupos correctos (evita falsos "sin cupos" en la misma semana).
+            # Si validate falla después, el rollback revierte también el restore.
+            camp_uc.restore_stock_for_order(order)
             total_amount, resolved_children = camp_uc.resolve_and_validate_children(
                 event_id=buyer["event_id"],
                 children=camp_children,
             )
 
         elif is_theater:
+            # Obtener boletos actuales antes de modificar nada
+            old_ticket = self.ticket_repo.get_by_order_id(order_id)
+            old_ticket_amount = old_ticket.amount if old_ticket else 0
+
             seats_list = [s.strip() for s in tickets["seats"].split(",") if s.strip()]
             if len(seats_list) != tickets["amount"]:
                 raise ValueError(
                     "La cantidad no coincide con los asientos proporcionados"
                 )
+
+            # Pre-check: stock disponible tras devolver el ticket anterior
+            available_after_restore = event.stock + old_ticket_amount
+            if tickets["amount"] > available_after_restore:
+                raise ValueError("No hay suficientes asientos disponibles")
 
             occupied = self.ticket_repo.get_occupied_seats(
                 buyer["event_id"],
@@ -348,8 +382,21 @@ class OrderUseCases:
             )
 
         else:
+            # Obtener conteo actual de asistentes antes de modificar nada
+            old_attendee_count = len(order.attendees)
+
             if len(attendees) > 10:
                 raise ValueError("Máximo 10 asistentes por orden")
+
+            # Pre-check: stock disponible tras devolver los asistentes anteriores
+            available_after_restore = event.stock + old_attendee_count
+            if len(attendees) > available_after_restore:
+                raise ValueError(
+                    f"No hay suficientes cupos disponibles. "
+                    f"Disponibles: {max(available_after_restore, 0)}, "
+                    f"solicitados: {len(attendees)}."
+                )
+
             total_amount = _calculate_total_attendees(event, attendees)
 
         # Actualizar datos del comprador
@@ -369,15 +416,20 @@ class OrderUseCases:
         order.total_amount = total_amount
 
         if is_camp:
-            # Restaurar stock anterior y reemplazar inscripciones
-            camp_uc.restore_stock_for_order(order)
+            # El restore ya se hizo en la fase de validación (más arriba).
+            # Aquí solo se reemplazan las inscripciones con los nuevos datos.
             from src.infra.adapters.camp_enrollment_repository import CampEnrollmentRepositorySQL
             CampEnrollmentRepositorySQL(self.db).delete_by_order_id(order_id)
             camp_uc.create_enrollments(order.id, resolved_children)
 
         elif is_theater:
+            # Devolver stock del ticket anterior (dentro de la misma transacción)
+            if old_ticket_amount > 0:
+                self.event_repo.restore_stock(old_event_id, old_ticket_amount)
             self.ticket_repo.delete_by_order_id(order_id)
             _create_ticket(self.db, order, tickets)
+            # Reservar stock del nuevo ticket atómicamente
+            self.event_repo.decrease_stock(buyer["event_id"], tickets["amount"])
 
             occupied_now = self.ticket_repo.get_occupied_seats(
                 buyer["event_id"],
@@ -393,10 +445,15 @@ class OrderUseCases:
                     f"{', '.join(conflicts_now)}. Por favor seleccione otros."
                 )
         else:
+            # Devolver stock de los asistentes anteriores (dentro de la misma transacción)
+            if old_attendee_count > 0:
+                self.event_repo.restore_stock(old_event_id, old_attendee_count)
             for att in order.attendees:
                 self.db.delete(att)
             self.db.flush()
             _create_attendees(self.db, order, attendees)
+            # Reservar stock de los nuevos asistentes atómicamente
+            self.event_repo.decrease_stock(buyer["event_id"], len(attendees))
 
         self.db.commit()
         return order
